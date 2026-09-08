@@ -1,4 +1,4 @@
-const CACHE = 'froydinger-vibeslops-v1';
+const CACHE = 'froydinger-vibeslops-v2';
 const BASE = new URL('./', self.location.href);
 const SHELL = ['index.html', 'manifest.webmanifest', 'pwa.js', 'touch-controls.css', 'social/icon-512.png'];
 

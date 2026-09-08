@@ -461,6 +461,7 @@
   #match-result { color: var(--fe-accent); font-size: 18px; }
   body.locked #match-status { opacity: 1; }
   body.locked.player-dead #crosshair, body.locked.player-dead #hud-ammo { opacity: 0; transition: none; }
+#mouse-fallback-hint { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 2; padding: 7px 12px; border-radius: 6px; background: #05090dcc; color: #fff; font: 12px system-ui; pointer-events: none; white-space: nowrap; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -475,6 +476,7 @@
 </script>
 </head>
 <body>
+<div id="mouse-fallback-hint" hidden>Drag to look · WASD move · Left mouse fire · Esc pause</div>
 <div id="blocker" data-screen="welcome">
   <div class="fe-layer fe-backdrop"></div>
   <div class="fe-layer fe-fog"></div>
@@ -657,6 +659,7 @@ import { TouchControls } from './touch-controls.js';
 import { GraphicsSettings, filterTextures } from './graphics-settings.js';
 import { GraphicsRenderer } from './graphics-renderer.js';
 import { PlayCounter } from './play-counter.js';
+import { requestMouseCapture } from './mouse-capture.js';
 import { loadCollisionWorld } from './collision-world.js';
 import { optimizeStaticScene } from './scene-optimizer.js';
 import { applyEnvironmentLighting, loadGradeLut, POST_SHADER, HAZE, applyMaterialClasses } from './lighting.js';
@@ -1257,6 +1260,7 @@ const yawPitch = new THREE.Euler(0, 0, 0, 'YXZ');
 
 let ready = false;
 let locked = false;
+let mouseCaptureFallback = false;
 let mouseFire = false;
 let mouseAim = false;
 let player = null;
@@ -1399,7 +1403,12 @@ function requestPlay() {
     setAutomationActive(true);
     playCounter.record().then(renderPlayCount);
   } else {
-    renderer.domElement.requestPointerLock()?.catch(() => frontend.suspend());
+    requestMouseCapture(renderer.domElement, () => {
+      mouseCaptureFallback = true;
+      setAutomationActive(true);
+      document.getElementById('mouse-fallback-hint').hidden = false;
+      playCounter.record().then(renderPlayCount);
+    });
   }
 }
 
@@ -1805,6 +1814,7 @@ function setAutomationActive(active = true) {
   document.body.classList.toggle('locked', locked);
   if (locked) frontend.enter();
   else frontend.suspend();
+  document.getElementById('mouse-fallback-hint').hidden = !locked || !mouseCaptureFallback;
   if (!locked) {
     clearKeys();
     weapon.setTrigger(false);
@@ -1822,7 +1832,7 @@ function getDebugState() {
     ready,
     active: locked,
     paused: automationPaused,
-    input: { touch: touchControls.getState() },
+    input: { touch: touchControls.getState(), mouseCaptureFallback },
     player: player ? {
       feet: debugVector(feet),
       eye: debugVector(player.position),
@@ -2029,7 +2039,11 @@ function createDebugApi() {
 }
 
 document.addEventListener('pointerlockchange', () => {
-  if (touchControls.mode && !document.pointerLockElement) return;
+  if ((touchControls.mode || mouseCaptureFallback) && !document.pointerLockElement) return;
+  if (document.pointerLockElement === renderer.domElement) {
+    mouseCaptureFallback = false;
+    document.getElementById('mouse-fallback-hint').hidden = true;
+  }
   locked = document.pointerLockElement === renderer.domElement;
   document.body.classList.toggle('locked', locked);
   // Counting here rather than in `frontend.enter()` keeps the automation
@@ -2048,6 +2062,7 @@ document.addEventListener('pointerlockchange', () => {
 
 document.addEventListener('mousemove', (event) => {
   if (!canControlPlayer() || event.sourceCapabilities?.firesTouchEvents) return;
+  if (mouseCaptureFallback && event.buttons === 0) return;
   applyLook(event.movementX, event.movementY);
 });
 
@@ -2072,7 +2087,7 @@ document.addEventListener('keydown', (event) => {
     event.preventDefault();
   }
   if (event.repeat || !ready) return;
-  if (event.code === 'Escape' && locked && touchControls.mode) {
+  if (event.code === 'Escape' && locked && (touchControls.mode || mouseCaptureFallback)) {
     suspendPlay();
     return;
   }
