@@ -1,0 +1,12 @@
+{
+  "id": "./",
+  "name": "Claude of Duty: Vibe Slops II",
+  "short_name": "Vibe Slops II",
+  "description": "Froydinger's browser edition. Original project by Luckey Faraday.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#05090d",
+  "theme_color": "#05090d",
+  "icons": [{ "src": "social/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }]
+}

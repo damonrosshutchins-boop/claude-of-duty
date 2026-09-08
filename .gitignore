@@ -62,3 +62,5 @@
 # Local smoke/probe artifacts
 /test/*.png
 /export/web/_collision_test.*
+
+!/FROYDINGER.md
